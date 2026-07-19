@@ -1,0 +1,262 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Admin {
+  id           String @id
+  firstName    String
+  lastName     String
+  passwordHash String @default("$2a$10$7R9rR0tS3V24036102602OuxUv/2xGfeqI8pI4iSg0mKofw2vHjA.") // default "123456"
+}
+
+model Teacher {
+  id           String @id
+  firstName    String
+  lastName     String
+  classIds     Json   @default("[]")
+  passwordHash String @default("$2a$10$7R9rR0tS3V24036102602OuxUv/2xGfeqI8pI4iSg0mKofw2vHjA.") // default "123456"
+}
+
+model Student {
+  id                String  @id
+  firstName         String
+  lastName          String
+  classId           String?
+  className         String?
+  nationalId        String?
+  dateOfBirth       String?
+  birthCert         Json?   @default("{}")
+  placeOfBirth      String?
+  nationality       String?
+  dominantHand      String?
+  health            Json?   @default("{}")
+  family            Json?   @default("{}")
+  contact           Json?   @default("{}")
+  naseebData        Json?   @default("{}")
+  profilePictureUrl String?
+  passwordHash      String  @default("$2a$10$7R9rR0tS3V24036102602OuxUv/2xGfeqI8pI4iSg0mKofw2vHjA.") // default "123456"
+}
+
+model Class {
+  id        String  @id
+  name      String
+  teacherId String?
+  subjects  Json?   @default("[]")
+}
+
+model Grade {
+  id        String @id
+  studentId String
+  teacherId String
+  subject   String
+  score     String
+  date      String
+}
+
+model Attendance {
+  id             String  @id
+  studentId      String
+  date           String
+  status         String
+  minutesLate    Int     @default(0)
+  departureTime  String  @default("")
+  isNotified     Boolean @default(false)
+  hasDoctorsNote Boolean @default(false)
+  recordedBy     String
+}
+
+model Discipline {
+  id          String @id
+  studentId   String
+  date        String
+  category    String
+  description String
+  actionTaken String
+  reportedBy  String
+}
+
+model Exam {
+  id               String @id
+  subject          String
+  examDate         String
+  syllabus         String
+  targetClassIds   Json   @default("[]")
+  announcementDate String
+  description      String
+  createdBy        String
+}
+
+model PtaMeeting {
+  id          String  @id
+  title       String
+  date        String
+  scope       String
+  scopeId     String
+  description String?
+  createdBy   String
+}
+
+model PtaAttendance {
+  id        String  @id
+  meetingId String
+  studentId String
+  attended  Boolean @default(false)
+  notes     String?
+}
+
+model Bill {
+  id           String  @id
+  studentId    String
+  title        String
+  description  String?
+  academicYear String
+  totalAmount  Int
+  amountPaid   Int
+  status       String
+  issueDate    String
+  dueDate      String?
+}
+
+model Payment {
+  id              String @id
+  financialBillId String
+  studentId       String
+  date            String
+  amount          Int
+  paymentMethod   String
+  description     String
+  chequeInfo      Json?  @default("{}")
+  recordedBy      String
+}
+
+model Event {
+  id          String  @id
+  title       String
+  description String?
+  dateTime    String
+  location    String
+  cost        Int     @default(0)
+  link        String? @default("")
+  linkText    String? @default("")
+  prize       String? @default("")
+  host        String? @default("")
+  audience    Json    @default("{}")
+  createdBy   String
+  imageUrl    String? @default("")
+}
+
+model Responsibility {
+  id        String  @id
+  name      String
+  type      String
+  createdBy String
+  color     String?
+}
+
+model ResponsibilityAssignment {
+  id               String @id
+  responsibilityId String
+  studentId        String
+  startDate        String
+  endDate          String
+  assignedBy       String
+}
+
+model AnecdotalRecord {
+  id          String @id
+  studentIds  Json   @default("[]")
+  date        String
+  subject     String
+  location    String
+  description String
+  recordedBy  String
+}
+
+model ParentMeeting {
+  id          String @id
+  studentId   String
+  date        String
+  attendees   String
+  reason      String
+  summary     String
+  actionItems String
+  recordedBy  String
+}
+
+model Badge {
+  id          String  @id
+  name        String
+  imageUrl    String?
+  criteria    String?
+  description String?
+  createdBy   String
+  scope       String
+}
+
+model AwardedBadge {
+  id          String  @id
+  badgeId     String
+  studentId   String
+  dateAwarded String
+  awardedBy   String
+  reason      String?
+}
+
+model Asset {
+  id          String  @id
+  barcode     String
+  type        String
+  status      String
+  description String?
+}
+
+model AssetAssignment {
+  id           String  @id
+  assetId      String
+  studentId    String
+  assignedDate String
+  returnedDate String?
+  notes        String?
+}
+
+model Notification {
+  id           String   @id
+  title        String
+  message      String
+  audience     Json     @default("{}")
+  createdAt    String
+  createdBy    String
+  color        String?
+  tags         Json?    @default("[]")
+  link         String?
+  linkText     String?
+  imageUrl     String?
+  isActive     Boolean  @default(true)
+  deactivateAt String?
+}
+
+model ScheduledNotification {
+  id              String   @id
+  titleTemplate   String
+  messageTemplate String
+  type            String
+  audience        Json     @default("{}")
+  color           String?
+  imageUrl        String?
+  scheduledDate   String?
+  isActive        Boolean  @default(true)
+  tags            Json?    @default("[]")
+  link            String?
+  linkText        String?
+  createdBy       String
+}
+
+model Settings {
+  id   Int  @id @default(1)
+  data Json
+}

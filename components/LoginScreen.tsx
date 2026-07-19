@@ -6,6 +6,9 @@ import { formatFullName } from './common/formatters';
 const LoginScreen: React.FC = () => {
   const [role, setRole] = useState<UserRole>('student');
   const [selectedUser, setSelectedUser] = useState<string>('');
+  const [password, setPassword] = useState<string>('123456');
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
   const { login } = useAuth();
   const { students, teachers, admins } = useData();
   const { settings } = useSettings();
@@ -13,6 +16,7 @@ const LoginScreen: React.FC = () => {
 
   useEffect(() => {
     setSelectedUser('');
+    setErrorMsg('');
     let users: User[] = [];
     if (role === 'student') {
         users = students;
@@ -32,14 +36,30 @@ const LoginScreen: React.FC = () => {
     });
 
     setUsersForRole(sortedUsers);
-  }, [role, students, teachers]);
+  }, [role, students, teachers, admins]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedUser) {
-      login(selectedUser, role);
-    } else {
-      alert('لطفا یک کاربر را انتخاب کنید.');
+    if (!selectedUser) {
+      setErrorMsg('لطفا یک کاربر را انتخاب کنید.');
+      return;
+    }
+    if (!password) {
+      setErrorMsg('لطفا رمز عبور را وارد کنید.');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    setErrorMsg('');
+    try {
+      const result = await login(selectedUser, password, role);
+      if (!result.success) {
+        setErrorMsg(result.error || 'ورود ناموفق بود.');
+      }
+    } catch (err) {
+      setErrorMsg('خطا در اتصال به سرور.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
   
@@ -58,11 +78,17 @@ const LoginScreen: React.FC = () => {
             )}
             <div>
                 <h1 className="text-3xl font-bold text-[var(--text-primary)]">ورود به {settings.schoolName}</h1>
-                <p className="text-[var(--text-secondary)] mt-2">لطفا نقش و نام خود را انتخاب کنید</p>
+                <p className="text-[var(--text-secondary)] mt-2">لطفا نقش، نام و رمز عبور خود را وارد کنید</p>
             </div>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
+        {errorMsg && (
+          <div className="p-3 bg-red-50 border-r-4 border-red-500 text-red-700 text-sm font-sans rounded-lg">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
             <label htmlFor="role" className="block text-sm font-medium text-[var(--text-primary)] mb-1">نقش شما</label>
             <select
@@ -112,12 +138,30 @@ const LoginScreen: React.FC = () => {
           </div>
 
           <div>
+            <label htmlFor="password" className="block text-sm font-medium text-[var(--text-primary)] mb-1">رمز عبور</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="رمز عبور خود را وارد کنید"
+              className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)] transition"
+              style={{
+                backgroundColor: 'var(--input-bg)',
+                borderColor: 'var(--input-border)',
+                color: 'var(--text-primary)'
+              }}
+            />
+            <p className="text-xs text-gray-400 mt-1">رمز عبور پیش‌فرض تمام کاربران: ۱۲۳۴۵۶</p>
+          </div>
+
+          <div className="pt-2">
             <button
               type="submit"
-              disabled={!selectedUser}
+              disabled={!selectedUser || isLoggingIn}
               className="w-full bg-[var(--primary-600)] text-white font-bold py-3 px-4 rounded-lg hover:bg-[var(--primary-700)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary-500)] transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              ورود به پنل
+              {isLoggingIn ? 'در حال تایید...' : 'ورود به پنل'}
             </button>
           </div>
         </form>

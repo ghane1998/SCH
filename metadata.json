@@ -2,5 +2,5 @@
   "name": "نسخه دیتابیسی سیستم مدیریت مدرسه",
   "description": "یک اپلیکیشن کامل برای مدیریت دانش آموزان، حضور و غیاب، نمرات و موارد انضباطی با پنل های مجزا برای مدیر، معلم و دانش آموز.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

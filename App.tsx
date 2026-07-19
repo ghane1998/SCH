@@ -15,8 +15,9 @@ import { formatFullName } from './components/common/formatters';
 interface AuthContextType {
   user: User | null;
   role: UserRole | null;
-  login: (id: string, role: UserRole) => void;
+  login: (id: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  token?: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -35,37 +36,44 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     return saved ? JSON.parse(saved) : null;
   })());
   const [role, setRole] = useState<UserRole | null>(localStorage.getItem('school_role') as UserRole || null);
-  
-  const { students, teachers, admins } = useData();
+  const [token, setToken] = useState<string | null>(localStorage.getItem('school_token') || null);
 
-  const login = (id: string, role: UserRole) => {
-    let foundUser: User | undefined;
-    if (role === 'student') {
-      foundUser = students.find(s => s.id === id);
-    } else if (role === 'teacher') {
-      foundUser = teachers.find(t => t.id === id);
-    } else if (role === 'admin') {
-      foundUser = admins.find(a => a.id === id);
-    }
-
-    if (foundUser) {
-      setUser(foundUser);
-      setRole(role);
-      localStorage.setItem('school_user', JSON.stringify(foundUser));
-      localStorage.setItem('school_role', role);
-    } else {
-      alert('کاربر یافت نشد!');
+  const login = async (id: string, password: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, password, role })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data.user);
+        setRole(data.role);
+        setToken(data.token);
+        localStorage.setItem('school_user', JSON.stringify(data.user));
+        localStorage.setItem('school_role', data.role);
+        localStorage.setItem('school_token', data.token);
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || 'رمز عبور یا شناسه اشتباه است' };
+      }
+    } catch (err) {
+      console.error(err);
+      return { success: false, error: 'خطا در ارتباط با سرور' };
     }
   };
 
   const logout = () => {
     setUser(null);
     setRole(null);
+    setToken(null);
     localStorage.removeItem('school_user');
     localStorage.removeItem('school_role');
+    localStorage.removeItem('school_token');
+    window.location.reload();
   };
 
-  const value = useMemo(() => ({ user, role, login, logout }), [user, role, students, teachers, admins]);
+  const value = useMemo(() => ({ user, role, login, logout, token }), [user, role, token]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
@@ -287,8 +295,23 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     const [assetAssignments, setAssetAssignments] = useState<AssetAssignment[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const getHeaders = () => {
+        const h: Record<string, string> = { 'Content-Type': 'application/json' };
+        const savedToken = localStorage.getItem('school_token');
+        if (savedToken) {
+            h['Authorization'] = `Bearer ${savedToken}`;
+        }
+        return h;
+    };
+
     const fetchData = async () => {
+        const savedToken = localStorage.getItem('school_token');
+        if (!savedToken) {
+            setLoading(false);
+            return;
+        }
         try {
+            const opt = { headers: getHeaders() };
             const [
                 studentsRes, teachersRes, adminsRes, classesRes, gradesRes, 
                 disciplineRes, attendanceRes, examsRes, ptaMeetingsRes, 
@@ -296,29 +319,29 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 respRes, respAssignRes, anecdotalRes, parentMeetingsRes, 
                 badgesRes, awardedBadgesRes, notificationsRes, scheduledNotificationsRes, assetsRes, assetAssignRes
             ] = await Promise.all([
-                fetch('/api/students').then(r => r.json()),
-                fetch('/api/teachers').then(r => r.json()),
-                fetch('/api/admins').then(r => r.json()),
-                fetch('/api/classes').then(r => r.json()),
-                fetch('/api/grades').then(r => r.json()),
-                fetch('/api/discipline').then(r => r.json()),
-                fetch('/api/attendance').then(r => r.json()),
-                fetch('/api/exams').then(r => r.json()),
-                fetch('/api/pta_meetings').then(r => r.json()),
-                fetch('/api/pta_attendance').then(r => r.json()),
-                fetch('/api/bills').then(r => r.json()),
-                fetch('/api/payments').then(r => r.json()),
-                fetch('/api/events').then(r => r.json()),
-                fetch('/api/responsibilities').then(r => r.json()),
-                fetch('/api/responsibility_assignments').then(r => r.json()),
-                fetch('/api/anecdotal_records').then(r => r.json()),
-                fetch('/api/parent_meetings').then(r => r.json()),
-                fetch('/api/badges').then(r => r.json()),
-                fetch('/api/awarded_badges').then(r => r.json()),
-                fetch('/api/notifications').then(r => r.json()),
-                fetch('/api/scheduled_notifications').then(r => r.json()),
-                fetch('/api/assets').then(r => r.json()),
-                fetch('/api/asset_assignments').then(r => r.json()),
+                fetch('/api/students', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/teachers', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/admins', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/classes', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/grades', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/discipline', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/attendance', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/exams', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/pta_meetings', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/pta_attendance', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/bills', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/payments', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/events', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/responsibilities', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/responsibility_assignments', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/anecdotal_records', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/parent_meetings', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/badges', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/awarded_badges', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/notifications', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/scheduled_notifications', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/assets', opt).then(r => r.ok ? r.json() : []),
+                fetch('/api/asset_assignments', opt).then(r => r.ok ? r.json() : []),
             ]);
 
             setStudents(studentsRes);
@@ -352,29 +375,52 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     };
 
     useEffect(() => {
-        fetchData();
+        const savedToken = localStorage.getItem('school_token');
+        if (savedToken) {
+            fetchData();
+        } else {
+            setLoading(false);
+        }
     }, []);
 
     const apiSave = async (table: string, item: any) => {
-        await fetch(`/api/${table}/save`, {
+        const res = await fetch(`/api/${table}/save`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(),
             body: JSON.stringify(item)
         });
+        if (!res.ok) {
+            const data = await res.json();
+            alert(data.error || 'خطا در ذخیره سازی اطلاعات');
+            throw new Error(data.error);
+        }
         fetchData(); // Refresh all data
     };
 
     const apiBulkSave = async (table: string, items: any[]) => {
-        await fetch(`/api/${table}/bulk-save`, {
+        const res = await fetch(`/api/${table}/bulk-save`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(),
             body: JSON.stringify(items)
         });
+        if (!res.ok) {
+            const data = await res.json();
+            alert(data.error || 'خطا در ثبت گروهی اطلاعات');
+            throw new Error(data.error);
+        }
         fetchData();
     };
 
     const apiDelete = async (table: string, id: string) => {
-        await fetch(`/api/${table}/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/${table}/${id}`, { 
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+        if (!res.ok) {
+            const data = await res.json();
+            alert(data.error || 'خطا در حذف اطلاعات');
+            throw new Error(data.error);
+        }
         fetchData();
     };
 
